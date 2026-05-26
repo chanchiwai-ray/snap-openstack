@@ -1163,7 +1163,8 @@ class ObservabilityFeature(OpenStackControlPlaneFeature):
 
         RESOURCE_PATH is the local path to the resource file to attach.
 
-        Use the `sunbeam observability list-resources` command to see the available resource names.
+        Use the `sunbeam observability list-resources` command to see the available
+        resource names.
         """
         jhelper = JujuHelper(deployment.juju_controller)
 
@@ -1176,7 +1177,8 @@ class ObservabilityFeature(OpenStackControlPlaneFeature):
         if resource_name not in valid_names:
             raise click.ClickException(
                 f"Unknown resource {resource_name!r}. "
-                f"Use the `sunbeam observability list-resources` command to see valid names."
+                f"Use the `sunbeam observability list-resources` command "
+                "to see valid names."
             )
 
         plan = [
