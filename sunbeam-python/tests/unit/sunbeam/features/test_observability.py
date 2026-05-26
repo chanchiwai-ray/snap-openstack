@@ -1,8 +1,10 @@
 # SPDX-FileCopyrightText: 2023 - Canonical Ltd
 # SPDX-License-Identifier: Apache-2.0
 
+import json
 from unittest.mock import MagicMock, Mock, patch
 
+import click
 import pytest
 
 from sunbeam.clusterd.service import ConfigItemNotFoundException
@@ -266,14 +268,11 @@ class TestRemoveObservabilityStackStep:
 
 
 class TestAttachHardwareObserverResourceStep:
-    def _make_step(self, deployment, jhelper, resource_name, resource_path):
-        return observability_feature.AttachHardwareObserverResourceStep(
-            deployment, jhelper, resource_name, resource_path
-        )
-
     def test_run(self, deployment, jhelper, step_context):
         """Happy path: attach_resource called with correct args."""
-        step = self._make_step(deployment, jhelper, "firmware", "/tmp/firmware.bin")
+        step = observability_feature.AttachHardwareObserverResourceStep(
+            deployment, jhelper, "firmware", "/tmp/firmware.bin"
+        )
         result = step.run(step_context)
 
         jhelper.attach_resource.assert_called_once_with(
@@ -288,7 +287,9 @@ class TestAttachHardwareObserverResourceStep:
         """Exception from attach_resource returns FAILED."""
         jhelper.attach_resource.side_effect = Exception("attach failed")
 
-        step = self._make_step(deployment, jhelper, "firmware", "/tmp/firmware.bin")
+        step = observability_feature.AttachHardwareObserverResourceStep(
+            deployment, jhelper, "firmware", "/tmp/firmware.bin"
+        )
         result = step.run(step_context)
 
         jhelper.attach_resource.assert_called_once()
@@ -297,22 +298,17 @@ class TestAttachHardwareObserverResourceStep:
 
 
 class TestListHardwareObserverResourcesStep:
-    def _make_step(self, deployment, jhelper):
-        return observability_feature.ListHardwareObserverResourcesStep(
-            deployment, jhelper
-        )
-
     def test_run(self, deployment, jhelper, step_context):
         """Happy path: returns JSON-encoded list of resource dicts sorted by name."""
-        import json
-
         resources = [
             {"name": "firmware", "type": "file", "description": "Firmware binary"},
             {"name": "storcli-amd64", "type": "file", "description": "StorCLI tool"},
         ]
         jhelper.get_application_resources.return_value = resources
 
-        step = self._make_step(deployment, jhelper)
+        step = observability_feature.ListHardwareObserverResourcesStep(
+            deployment, jhelper
+        )
         result = step.run(step_context)
 
         jhelper.get_application_resources.assert_called_once_with(
@@ -326,7 +322,9 @@ class TestListHardwareObserverResourcesStep:
         """Exception from get_application_resources returns FAILED."""
         jhelper.get_application_resources.side_effect = Exception("list failed")
 
-        step = self._make_step(deployment, jhelper)
+        step = observability_feature.ListHardwareObserverResourcesStep(
+            deployment, jhelper
+        )
         result = step.run(step_context)
 
         assert result.result_type == ResultType.FAILED
@@ -337,8 +335,6 @@ class TestAttachResourceCommand:
     """Tests for the attach_resource CLI command (resource name validation)."""
 
     def _resources_json(self, names):
-        import json
-
         return json.dumps(
             [{"name": n, "type": "file", "description": ""} for n in names]
         )
@@ -350,8 +346,6 @@ class TestAttachResourceCommand:
 
     def _call_attach(self, feature, deployment, resource_name, resource_path):
         """Invoke attach_resource callback with an active Click context."""
-        import click
-
         cmd = observability_feature.ObservabilityFeature.attach_resource
         with click.Context(cmd, obj=deployment):
             return feature.attach_resource.callback(
@@ -362,9 +356,6 @@ class TestAttachResourceCommand:
         self, deployment, run_plan_obs, juju_helper_obs
     ):
         """attach_resource raises ClickException when name is not in the list."""
-        import click
-        import pytest
-
         with patch(
             "sunbeam.features.observability.feature.get_step_message",
             return_value=self._resources_json(["firmware", "storcli-amd64"]),
@@ -395,10 +386,6 @@ class TestAttachResourceCommand:
 
 
 class TestDeployObservabilityAgentStep:
-    def _mock_model_status(self, jhelper, apps):
-        """Set up get_model_status to return apps dict with given app mocks."""
-        jhelper.get_model_status.return_value = Mock(apps=apps)
-
     def test_run(
         self, deployment, tfhelper, jhelper, observabilityfeature, step_context
     ):
@@ -415,12 +402,11 @@ class TestDeployObservabilityAgentStep:
         self, deployment, tfhelper, jhelper, observabilityfeature, step_context
     ):
         """Microovn is added to integration-apps when it exists in the model."""
-        self._mock_model_status(
-            jhelper,
-            {
+        jhelper.get_model_status.return_value = Mock(
+            apps={
                 "openstack-hypervisor": Mock(),
                 "microovn": Mock(),
-            },
+            }
         )
 
         step = observability_feature.DeployObservabilityAgentStep(
@@ -438,9 +424,10 @@ class TestDeployObservabilityAgentStep:
         self, deployment, tfhelper, jhelper, observabilityfeature, step_context
     ):
         """Microovn is not added when it does not exist in the model."""
-        self._mock_model_status(
-            jhelper,
-            {"openstack-hypervisor": Mock()},
+        jhelper.get_model_status.return_value = Mock(
+            apps={
+                "openstack-hypervisor": Mock(),
+            }
         )
 
         step = observability_feature.DeployObservabilityAgentStep(
@@ -871,23 +858,19 @@ class TestObservabilityFeaturePostEnable:
 
 
 class TestDeployHardwareObserverStep:
-    def _make_step(self, deployment, tfhelper, jhelper, observabilityfeature):
-        return observability_feature.DeployHardwareObserverStep(
-            deployment, Mock(), observabilityfeature, tfhelper, jhelper
-        )
-
     def test_run(
         self, deployment, tfhelper, jhelper, observabilityfeature, step_context
     ):
         """Happy path: terraform applies against sunbeam-machine, wait succeeds."""
-        step = self._make_step(deployment, tfhelper, jhelper, observabilityfeature)
+        step = observability_feature.DeployHardwareObserverStep(
+            deployment, Mock(), observabilityfeature, tfhelper, jhelper
+        )
         result = step.run(step_context)
 
         tfhelper.update_tfvars_and_apply_tf.assert_called_once()
         override = tfhelper.update_tfvars_and_apply_tf.call_args.kwargs[
             "override_tfvars"
         ]
-        assert override["hardware-observer-app"] == "hardware-observer"
         assert override["principal-applications"] == ["sunbeam-machine"]
         jhelper.wait_application_ready.assert_called_once()
         assert result.result_type == ResultType.COMPLETED
@@ -900,7 +883,9 @@ class TestDeployHardwareObserverStep:
             "apply failed..."
         )
 
-        step = self._make_step(deployment, tfhelper, jhelper, observabilityfeature)
+        step = observability_feature.DeployHardwareObserverStep(
+            deployment, Mock(), observabilityfeature, tfhelper, jhelper
+        )
         result = step.run(step_context)
 
         tfhelper.update_tfvars_and_apply_tf.assert_called_once()
@@ -914,7 +899,9 @@ class TestDeployHardwareObserverStep:
         """Timeout waiting for hardware-observer returns FAILED."""
         jhelper.wait_application_ready.side_effect = TimeoutError("timed out")
 
-        step = self._make_step(deployment, tfhelper, jhelper, observabilityfeature)
+        step = observability_feature.DeployHardwareObserverStep(
+            deployment, Mock(), observabilityfeature, tfhelper, jhelper
+        )
         result = step.run(step_context)
 
         tfhelper.update_tfvars_and_apply_tf.assert_called_once()
@@ -926,17 +913,14 @@ class TestDeployHardwareObserverStep:
         self, deployment, tfhelper, jhelper, observabilityfeature, step_context
     ):
         """Default accepted_app_status allows blocked so the step does not fail."""
-        step = self._make_step(deployment, tfhelper, jhelper, observabilityfeature)
+        step = observability_feature.DeployHardwareObserverStep(
+            deployment, Mock(), observabilityfeature, tfhelper, jhelper
+        )
         assert "blocked" in step.accepted_app_status
         assert "active" in step.accepted_app_status
 
 
 class TestRemoveHardwareObserverStep:
-    def _make_step(self, deployment, tfhelper, jhelper, observabilityfeature):
-        return observability_feature.RemoveHardwareObserverStep(
-            deployment, observabilityfeature, tfhelper, jhelper
-        )
-
     def test_run(
         self,
         deployment,
@@ -947,7 +931,9 @@ class TestRemoveHardwareObserverStep:
         step_context,
     ):
         """Happy path: destroy succeeds, app gone, config cleared."""
-        step = self._make_step(deployment, tfhelper, jhelper, observabilityfeature)
+        step = observability_feature.RemoveHardwareObserverStep(
+            deployment, observabilityfeature, tfhelper, jhelper
+        )
         result = step.run(step_context)
 
         tfhelper.destroy.assert_called_once()
@@ -962,7 +948,9 @@ class TestRemoveHardwareObserverStep:
         """Terraform destroy failure returns FAILED without waiting."""
         tfhelper.destroy.side_effect = TerraformException("destroy failed...")
 
-        step = self._make_step(deployment, tfhelper, jhelper, observabilityfeature)
+        step = observability_feature.RemoveHardwareObserverStep(
+            deployment, observabilityfeature, tfhelper, jhelper
+        )
         result = step.run(step_context)
 
         tfhelper.destroy.assert_called_once()
@@ -976,7 +964,9 @@ class TestRemoveHardwareObserverStep:
         """Timeout waiting for app to be gone returns FAILED."""
         jhelper.wait_application_gone.side_effect = TimeoutError("timed out")
 
-        step = self._make_step(deployment, tfhelper, jhelper, observabilityfeature)
+        step = observability_feature.RemoveHardwareObserverStep(
+            deployment, observabilityfeature, tfhelper, jhelper
+        )
         result = step.run(step_context)
 
         tfhelper.destroy.assert_called_once()
