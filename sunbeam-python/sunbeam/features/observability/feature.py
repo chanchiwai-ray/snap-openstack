@@ -401,6 +401,7 @@ class DeployObservabilityAgentStep(BaseStep, JujuStepHelper):
         extra_tfvars = {
             "principal-application-model-uuid": self.jhelper.get_model_uuid(self.model),
             "observability-agent-integration-apps": integration_apps,
+            "observability-agent-integration-apps-juju-info": [SUNBEAM_MACHINE_APP],
         }
         # Offer URLs from COS are added from feature
         extra_tfvars.update(
