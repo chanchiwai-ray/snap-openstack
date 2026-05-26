@@ -465,7 +465,6 @@ class DeployHardwareObserverStep(BaseStep, JujuStepHelper):
         """Deploy hardware-observer and wait for it to settle."""
         extra_tfvars = {
             "principal-application-model-uuid": self.jhelper.get_model_uuid(self.model),
-            "hardware-observer-app": HARDWARE_OBSERVER_APP,
             "principal-applications": [SUNBEAM_MACHINE_APP],
             "observability-agent-app": OBSERVABILITY_AGENT_APP,
         }
